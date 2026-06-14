@@ -1,0 +1,209 @@
+---
+title: "Time Series Forecasting and Analysis Report"
+author: "Forecasting Framework"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    code_folding: show
+params:
+  data_path: "data/daily-total-female-births.csv"
+  train_ratio: 0.6
+  frequency: 7
+  forecast_horizon: 154
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align = 'center', fig.width = 10, fig.height = 6)
+
+# Source modules
+source("R/data_loader.R")
+source("R/models.R")
+source("R/plots.R")
+
+library(knitr)
+library(tseries)
+library(forecast)
+library(ggplot2)
+```
+
+## Executive Summary
+This document provides a comprehensive analysis and forecast of the time series dataset loaded from ``r params$data_path``. 
+
+The analysis steps include:
+1. Data cleaning and preparation.
+2. Exploratory time series analysis (stationarity, decomposition, autocorrelation).
+3. Model fitting (Seasonal Naive, ETS, Holt-Winters, and Auto-ARIMA).
+4. Validation and error metrics evaluation against a test holdout set.
+5. Statistical diagnostics of residuals.
+6. Multi-step ahead forecasting.
+
+---
+
+## 1. Data Exploration & Quality Checks
+
+```{r load_data}
+# Ensure data is present
+if (params$data_path == "data/daily-total-female-births.csv") {
+  download_default_data(params$data_path)
+}
+
+raw_df <- load_and_clean_data(params$data_path)
+y <- create_ts_object(raw_df, frequency = params$frequency)
+
+# Basic statistics
+summary_stats <- summary(y)
+```
+
+The time series contains `r length(y)` observations. Below is the statistical summary of the values:
+
+```{r summary_table, echo=FALSE}
+kable(t(as.matrix(summary_stats)), col.names = c("Min", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max"), caption = "Time Series Descriptive Statistics")
+```
+
+### 1.1 Visualizing the Time Series
+The raw observations plotted over time to check for trends, seasonality, or obvious outliers:
+
+```{r plot_raw, echo=FALSE}
+plot_time_series(y, title = "Original Time Series Observations")
+```
+
+### 1.2 Stationarity Test
+We perform the Augmented Dickey-Fuller (ADF) test to evaluate if the series is stationary.
+- **Null Hypothesis ($H_0$):** The series has a unit root (is non-stationary).
+- **Alternative Hypothesis ($H_a$):** The series is stationary.
+
+```{r adf_test}
+adf_res <- adf.test(y)
+```
+
+The ADF statistic is **`r round(adf_res$statistic, 4)`** with a p-value of **`r round(adf_res$p.value, 4)`**.
+`r if(adf_res$p.value < 0.05) { "Since the p-value is less than 0.05, we reject the null hypothesis and conclude that the series is **stationary**." } else { "Since the p-value is greater than 0.05, we fail to reject the null hypothesis, indicating the series is **non-stationary**." }`
+
+### 1.3 Time Series Decomposition
+Applying Seasonal and Trend decomposition using LOESS (STL) to separate the series into its underlying component parts: trend, weekly seasonal pattern, and residual noise.
+
+```{r plot_decomp, echo=FALSE}
+plot_decomposition(y)
+```
+
+---
+
+## 2. Model Fitting and Evaluation
+
+We split the dataset into training and test holdout sets using a split ratio of `r params$train_ratio * 100`%.
+- **Training Set Size:** `r round(length(y) * params$train_ratio)` observations.
+- **Test Set Size (Forecast Horizon $h$):** `r length(y) - round(length(y) * params$train_ratio)` observations.
+
+```{r split_data}
+split <- split_train_test(y, train_ratio = params$train_ratio)
+train <- split$train
+test <- split$test
+h <- split$h
+```
+
+We fit four forecasting models to the training data:
+1. **Seasonal Naive (SNAIVE):** Projects the last observed seasonal cycle forward.
+2. **ETS (Error, Trend, Seasonal):** State space exponential smoothing model.
+3. **Holt-Winters (HW):** Triple exponential smoothing.
+4. **Auto-ARIMA (ARIMA):** Automated Box-Jenkins modeling.
+
+```{r fit_models}
+fc_snaive <- fit_snaive_model(train, h = h)
+fc_ets <- fit_ets_model(train, h = h)
+fc_hw <- fit_holtwinters_model(train, h = h, seasonal = "additive")
+fc_arima <- fit_arima_model(train, h = h)
+```
+
+### 2.1 Model Comparison & Accuracy Metrics
+We compute the prediction errors on the test dataset.
+
+```{r accuracy_comp, echo=FALSE}
+acc_snaive <- evaluate_model_accuracy(fc_snaive, test)
+acc_ets <- evaluate_model_accuracy(fc_ets, test)
+acc_hw <- evaluate_model_accuracy(fc_hw, test)
+acc_arima <- evaluate_model_accuracy(fc_arima, test)
+
+# Combine test metrics
+metrics <- rbind(
+  SNAIVE = acc_snaive["Test set", c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE")],
+  ETS = acc_ets["Test set", c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE")],
+  HoltWinters = acc_hw["Test set", c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE")],
+  ARIMA = acc_arima["Test set", c("ME", "RMSE", "MAE", "MPE", "MAPE", "MASE")]
+)
+
+kable(metrics, digits = 3, caption = "Model Accuracy Comparison on Test Holdout Set")
+```
+
+### 2.2 Forecast Plots
+The following sections plot the forecasts against the actual test values:
+
+### 2.2.1 Seasonal Naive Forecast
+```{r plot_snaive, echo=FALSE}
+plot_forecast_vs_actual(fc_snaive, test, "Seasonal Naive")
+```
+
+### 2.2.2 ETS Forecast
+```{r plot_ets, echo=FALSE}
+plot_forecast_vs_actual(fc_ets, test, "ETS")
+```
+
+### 2.2.3 Holt-Winters Forecast
+```{r plot_hw, echo=FALSE}
+plot_forecast_vs_actual(fc_hw, test, "Holt-Winters Additive")
+```
+
+### 2.2.4 Auto-ARIMA Forecast
+```{r plot_arima, echo=FALSE}
+plot_forecast_vs_actual(fc_arima, test, "Auto-ARIMA")
+```
+
+---
+
+## 3. Residual Diagnostics (Auto-ARIMA)
+A good model should have residuals that resemble white noise (uncorrelated, zero mean, constant variance). We examine the residuals of the Auto-ARIMA model.
+
+```{r residual_plots, echo=FALSE}
+res_plots <- plot_residuals_diagnostics(fc_arima)
+```
+
+```{r show_res_line, echo=FALSE}
+res_plots$line
+```
+
+```{r show_res_acf_hist, echo=FALSE, fig.show="hold", out.width="50%"}
+res_plots$acf
+res_plots$hist
+```
+
+### 3.1 Portmanteau Test (Ljung-Box)
+We run a Ljung-Box test to check if the residuals have significant autocorrelations.
+- **Null Hypothesis ($H_0$):** Residuals are independent (no autocorrelation, white noise).
+- **Alternative Hypothesis ($H_a$):** Residuals exhibit autocorrelation.
+
+```{r ljung_box}
+lb_test <- Box.test(residuals(fc_arima$model), lag = params$frequency * 2, type = "Ljung-Box")
+lb_test
+```
+
+The Ljung-Box test p-value is **`r round(lb_test$p.value, 4)`**.
+`r if(lb_test$p.value > 0.05) { "Since the p-value is greater than 0.05, we fail to reject the null hypothesis, indicating that the residuals are **uncorrelated** and consistent with white noise." } else { "Since the p-value is less than 0.05, we reject the null hypothesis, indicating that there is **residual autocorrelation** and the model could be further refined." }`
+
+---
+
+## 4. Final Forecast
+Based on the metrics above, the best-performing model can be selected. The following table displays the final forecast points and confidence bands for the upcoming `r params$forecast_horizon` time periods.
+
+```{r final_forecast_table, echo=FALSE}
+fc_final <- forecast(auto.arima(y), h = params$forecast_horizon)
+final_df <- data.frame(
+  Point_Forecast = as.numeric(fc_final$mean),
+  Lo_80 = as.numeric(fc_final$lower[, 1]),
+  Hi_80 = as.numeric(fc_final$upper[, 1]),
+  Lo_95 = as.numeric(fc_final$lower[, 2]),
+  Hi_95 = as.numeric(fc_final$upper[, 2])
+)
+kable(head(final_df, 15), digits = 2, caption = "First 15 Steps of Final Model Forecast Predictions")
+```
