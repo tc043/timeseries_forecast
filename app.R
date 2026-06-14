@@ -201,11 +201,12 @@ ui <- page_sidebar(
       icon = icon("gauge-high"),
       card(
         card_header("Model Selection"),
-        selectInput("selected_model", "Choose Forecasting Model for Visual Comparison",
-                    choices = c("Seasonal Naive (SNAIVE)" = "snaive",
-                                "Exponential Smoothing (ETS)" = "ets",
-                                "Holt-Winters" = "hw",
-                                "Auto-ARIMA" = "arima"))
+        selectizeInput("selected_model", "Choose Forecasting Model for Visual Comparison",
+                       choices = c("Seasonal Naive (SNAIVE)" = "snaive",
+                                   "Exponential Smoothing (ETS)" = "ets",
+                                   "Holt-Winters" = "hw",
+                                   "Auto-ARIMA" = "arima"),
+                       options = list(dropdownParent = "body"))
       ),
       card(
         card_header("Forecast vs Actuals (Validation Holdout)"),
