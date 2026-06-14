@@ -37,21 +37,21 @@ theme_premium <- function() {
 #' @param title character. Plot title.
 #' @return ggplot object.
 plot_time_series <- function(y, title = "Time Series Data") {
-  time_idx <- time(y)
   df <- data.frame(
-    Time = as.numeric(time_idx),
+    Time = 1:length(y),
     Value = as.numeric(y)
   )
   
-  ggplot(df, aes(x = Time, y = Value)) +
-    geom_line(color = THEME_COLORS$primary, linewidth = 0.8) +
-    geom_point(color = THEME_COLORS$secondary, size = 1.2, alpha = 0.8) +
+  p <- ggplot(df, aes(x = Time, y = Value)) +
+    geom_line(aes(text = paste("Time Step:", Time, "<br>Value:", round(Value, 2))), color = THEME_COLORS$primary, linewidth = 0.8) +
+    geom_point(aes(text = paste("Time Step:", Time, "<br>Value:", round(Value, 2))), color = THEME_COLORS$secondary, size = 1.2, alpha = 0.8) +
     labs(
       title = title,
-      x = "Time Period / Frequency Cycles",
+      x = "Time Step",
       y = "Value"
     ) +
     theme_premium()
+  return(p)
 }
 
 #' Plot ACF and PACF Side-by-Side
@@ -96,7 +96,7 @@ plot_acf_pacf <- function(y) {
 plot_decomposition <- function(y) {
   decomp <- stl(y, s.window = "periodic")
   df <- data.frame(
-    Time = as.numeric(time(y)),
+    Time = 1:length(y),
     Observed = as.numeric(decomp$time.series[, "trend"] + decomp$time.series[, "seasonal"] + decomp$time.series[, "remainder"]),
     Trend = as.numeric(decomp$time.series[, "trend"]),
     Seasonal = as.numeric(decomp$time.series[, "seasonal"]),
@@ -106,16 +106,19 @@ plot_decomposition <- function(y) {
   df_long <- tidyr::pivot_longer(df, cols = -Time, names_to = "Component", values_to = "Value")
   df_long$Component <- factor(df_long$Component, levels = c("Observed", "Trend", "Seasonal", "Remainder"))
   
-  ggplot(df_long, aes(x = Time, y = Value)) +
-    geom_line(color = THEME_COLORS$primary, linewidth = 0.8) +
+  p <- ggplot(df_long, aes(x = Time, y = Value)) +
+    geom_line(aes(text = paste("Time Step:", Time,
+                               "<br>Value:", round(Value, 2),
+                               "<br>Component:", Component)), color = THEME_COLORS$primary, linewidth = 0.8) +
     facet_grid(Component ~ ., scales = "free_y") +
     labs(
       title = "STL Decomposition",
-      x = "Time Period / Cycles",
+      x = "Time Step",
       y = "Value"
     ) +
     theme_premium() +
     theme(strip.text.y = element_text(angle = 0, face = "bold", size = 10))
+  return(p)
 }
 
 #' Plot Forecast vs Actuals
@@ -127,18 +130,18 @@ plot_decomposition <- function(y) {
 #' @param model_name character. Name of the forecasting model.
 #' @return ggplot object.
 plot_forecast_vs_actual <- function(fc, test = NULL, model_name = "Model") {
-  # Convert training data to data frame
-  train_time <- time(fc$x)
+  # Convert training data to data frame using clean integer sequence
+  N_train <- length(fc$x)
   df_train <- data.frame(
-    Time = as.numeric(train_time),
+    Time = 1:N_train,
     Value = as.numeric(fc$x),
     Type = "Training"
   )
   
-  # Forecast data
-  fc_time <- time(fc$mean)
+  # Forecast data using clean integer sequence
+  N_fc <- length(fc$mean)
   df_fc <- data.frame(
-    Time = as.numeric(fc_time),
+    Time = (N_train + 1):(N_train + N_fc),
     Value = as.numeric(fc$mean),
     Type = "Forecast",
     Lo80 = as.numeric(fc$lower[, 1]),
@@ -158,9 +161,9 @@ plot_forecast_vs_actual <- function(fc, test = NULL, model_name = "Model") {
   
   # Add test data if available
   if (!is.null(test)) {
-    test_time <- time(test)
+    N_test <- length(test)
     df_test <- data.frame(
-      Time = as.numeric(test_time),
+      Time = (N_train + 1):(N_train + N_test),
       Value = as.numeric(test),
       Type = "Actual (Test)",
       Lo80 = NA, Hi80 = NA, Lo95 = NA, Hi95 = NA
@@ -169,15 +172,17 @@ plot_forecast_vs_actual <- function(fc, test = NULL, model_name = "Model") {
   }
   
   # Plot
-  p <- ggplot(df_all, aes(x = Time, y = Value, color = Type)) +
+  p <- ggplot(df_all, aes(x = Time, y = Value, color = Type, group = Type)) +
     # Confidence ribbon 95%
     geom_ribbon(data = subset(df_all, Type == "Forecast"),
                 aes(ymin = Lo95, ymax = Hi95), fill = THEME_COLORS$primary, alpha = 0.1, color = NA) +
     # Confidence ribbon 80%
     geom_ribbon(data = subset(df_all, Type == "Forecast"),
                 aes(ymin = Lo80, ymax = Hi80), fill = THEME_COLORS$primary, alpha = 0.2, color = NA) +
-    # Lines
-    geom_line(aes(linetype = Type), linewidth = 0.8) +
+    # Lines with custom tooltip mapping to prevent duplicate hover labels and show integer time step
+    geom_line(aes(linetype = Type, text = paste("Time Step:", Time,
+                                                 "<br>Value:", round(Value, 2),
+                                                 "<br>Type:", Type)), linewidth = 0.8) +
     # Custom colors and line types
     scale_color_manual(values = c(
       "Training" = THEME_COLORS$primary,
@@ -192,7 +197,7 @@ plot_forecast_vs_actual <- function(fc, test = NULL, model_name = "Model") {
     labs(
       title = paste("Forecast evaluation -", model_name),
       subtitle = "Visual comparison of historical training, actual test data, and forecasts with 80% & 95% confidence intervals",
-      x = "Time Period / Cycles",
+      x = "Time Step",
       y = "Value"
     ) +
     theme_premium()

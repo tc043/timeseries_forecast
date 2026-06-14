@@ -362,7 +362,7 @@ server <- function(input, output, session) {
   output$ts_plot <- renderPlotly({
     req(state$y)
     p <- plot_time_series(state$y, "Time Series History")
-    ggplotly(p) %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
+    ggplotly(p, tooltip = "text") %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
   })
   
   output$summary_table <- renderTable({
@@ -391,7 +391,7 @@ server <- function(input, output, session) {
   output$decomp_plot <- renderPlotly({
     req(state$y)
     p <- plot_decomposition(state$y)
-    ggplotly(p) %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
+    ggplotly(p, tooltip = "text") %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
   })
   
   output$acf_plot <- renderPlotly({
@@ -420,7 +420,7 @@ server <- function(input, output, session) {
     fc <- current_forecast_obj()
     req(fc)
     p <- plot_forecast_vs_actual(fc, state$test, toupper(input$selected_model))
-    ggplotly(p) %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
+    ggplotly(p, tooltip = "text") %>% layout(plot_bgcolor = 'rgba(0,0,0,0)', paper_bgcolor = 'rgba(0,0,0,0)')
   })
   
   output$accuracy_table <- renderTable({
