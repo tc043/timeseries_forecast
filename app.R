@@ -79,6 +79,12 @@ custom_css <- "
     box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
     transform: translateY(-1px);
   }
+  .tab-content, .tab-pane {
+    overflow: visible !important;
+  }
+  .card-body {
+    overflow: visible !important;
+  }
 "
 
 # Shiny UI definition
@@ -195,12 +201,11 @@ ui <- page_sidebar(
       icon = icon("gauge-high"),
       card(
         card_header("Model Selection"),
-        selectizeInput("selected_model", "Choose Forecasting Model for Visual Comparison",
-                       choices = c("Seasonal Naive (SNAIVE)" = "snaive",
-                                   "Exponential Smoothing (ETS)" = "ets",
-                                   "Holt-Winters" = "hw",
-                                   "Auto-ARIMA" = "arima"),
-                       options = list(dropdownParent = "body"))
+        selectInput("selected_model", "Choose Forecasting Model for Visual Comparison",
+                    choices = c("Seasonal Naive (SNAIVE)" = "snaive",
+                                "Exponential Smoothing (ETS)" = "ets",
+                                "Holt-Winters" = "hw",
+                                "Auto-ARIMA" = "arima"))
       ),
       card(
         card_header("Forecast vs Actuals (Validation Holdout)"),
