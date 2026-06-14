@@ -66,9 +66,16 @@ cd timeseries_forecast
 ## 💻 Usage
 
 ### 1. Automated Execution (Tests & Report)
-You can run the entire pipeline—from testing to data ingestion and report generation—using the wrapper script:
+You can run the entire pipeline—from testing to data ingestion and report generation—using the wrapper scripts:
+
+**On Linux / macOS:**
 ```bash
 ./run_pipeline.sh
+```
+
+**On Windows (Command Prompt / PowerShell):**
+```cmd
+run_pipeline.bat
 ```
 
 ### 2. Command-Line Interface (`main.R`)
