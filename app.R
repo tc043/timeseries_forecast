@@ -79,6 +79,12 @@ custom_css <- "
     box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
     transform: translateY(-1px);
   }
+  .tab-content, .tab-pane {
+    overflow: visible !important;
+  }
+  .card-body {
+    overflow: visible !important;
+  }
 "
 
 # Shiny UI definition
